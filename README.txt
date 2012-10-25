@@ -22,8 +22,9 @@ For more details see PHP preg_replace() documentation.
 
 Notice that the first characters of match pattern consist of:
 
- * `/` and its pair at the end, means the character used to enclose the regex pattern.
- * `^` means start of sentences.
+ * `/` and its pair at the end, means the character used to enclose the regex
+   pattern.
+ * `^` means start of sentence (in regex).
  * `\/` means path separator, forward slash (escaped using backslash), because
    this module looks for `$_SERVER['REQUEST_URI']` which  usually return something
    like `/path`.

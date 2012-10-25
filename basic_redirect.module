@@ -42,33 +42,33 @@ function basic_redirect_boot() {
     return;
   }
 
-  // Gets configuration.
+  // Get configuration.
   $text = variable_get('basic_redirect_Rules', '');
   $rules = array();
   _basic_redirect_text2rules($text, $rules);
 
-  // Find rule that matches current url.
+  // Find rule that matched current url.
   $rule = _basic_redirect_getrule($url, $rules);
   if ($rule) {
-    // Exits stage left, redirect to other place.
+    // Exit stage left, redirect to other place.
     header('Location: ' . $rule['url'], TRUE, $rule['code']);
     drupal_exit($rule['url']);
   }
 }
 
 /**
- * Converts multiline text of rules in to array.
+ * Convert multiline text of rules into array.
  */
 function _basic_redirect_text2rules($texts, &$rules) {
-  // Splits lines into array.
+  // Split lines into array.
   $texts_arr = preg_split('/\R/', $texts, -1, PREG_SPLIT_NO_EMPTY);
 
-  // Extracts rules.
+  // Extract rules.
   foreach ($texts_arr as $text) {
     if (preg_match('/^(.+)(\s+\d{3}\s+)(.+)$/', $text, $matches)) {
       $rules[trim($matches[1])] = array(
-        'code' => (int) $matches[2],
-        'target' => $matches[3],
+        'code' => (int) trim($matches[2]),
+        'target' => trim($matches[3]),
       );
     }
   }
