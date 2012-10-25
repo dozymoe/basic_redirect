@@ -1,0 +1,8 @@
+name = Basic Redirect
+package = Skyshi
+description = Fundamental http redirect rule using regex
+core = 6.x
+
+configure = admin/build/basic-redirect
+
+version = 6.x-1.x

@@ -1,0 +1,173 @@
+<?php
+
+/**
+ * Basic http redirect using regex, for when you don't have access to
+ * Http server configuration or .htaccess.
+ *
+ * @author fireh <dozymoe@gmail.com>
+ * @copyright Fahri Reza (2012)
+ */
+
+/**
+ * Implements hook_perm().
+ */
+function basic_redirect_perm() {
+  return array('Administer basic redirect');
+}
+
+/**
+ * Implements hook_menu().
+ */
+function basic_redirect_menu() {
+  $items = array(
+    'admin/build/basic-redirect' => array(
+      'title' => 'Basic Redirect',
+      'description' => 'Basic regex/wildcard redirect, limited functionality, in the early Drupal bootstrap.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_basic_redirect_settings_form'),
+      'access arguments' => array('Administer basic redirect'),
+      'type' => MENU_NORMAL_ITEM,
+    ),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_boot().
+ */
+function basic_redirect_boot() {
+  $url = $_SERVER['REQUEST_URI'];
+  if ($url === '/admin/build/basic-redirect') {
+    return;
+  }
+
+  // Gets configuration.
+  $text = variable_get('basic_redirect_Rules', '');
+  $rules = array();
+  _basic_redirect_text2rules($text, $rules);
+
+  // Find rule that matches current url.
+  $rule = _basic_redirect_getrule($url, $rules);
+  if ($rule) {
+    // Exits stage left, redirect to other place.
+    header('Location: ' . $rule['url'], TRUE, $rule['code']);
+    drupal_exit($rule['url']);
+  }
+}
+
+/**
+ * Converts multiline text of rules in to array.
+ */
+function _basic_redirect_text2rules($texts, &$rules) {
+  // Splits lines into array.
+  $texts_arr = preg_split('/\R/', $texts, -1, PREG_SPLIT_NO_EMPTY);
+
+  // Extracts rules.
+  foreach ($texts_arr as $text) {
+    if (preg_match('/^(.+)(\s+\d{3}\s+)(.+)$/', $text, $matches)) {
+      $rules[trim($matches[1])] = array(
+        'code' => (int) $matches[2],
+        'target' => $matches[3],
+      );
+    }
+  }
+}
+
+/**
+ * Finds possible redirect, return FALSE if not found.
+ */
+function _basic_redirect_getrule(&$url, &$rules) {
+  // Iterate for a match with url.
+  foreach ($rules as $key => &$rule) {
+    if (preg_match($key, $url)) {
+      return  array(
+        'url' => preg_replace($key, $rule['target'], $url),
+        'code' => $rule['code'],
+      );
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Configuration form.
+ */
+function _basic_redirect_settings_form(&$form_state) {
+  $form = array();
+
+  $form['rules'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Rules'),
+    '#description' => t('Each rule on its line, first rules get priority, 3 sets (match pattern, http code, replacement pattern).'),
+  );
+
+  $form['test_url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Test Url'),
+    '#description' => t('Relative path to test against redirect rules (expected value: /PATH).'),
+  );
+
+  if (isset($form_state['storage'])) {
+    $values = &$form_state['storage']['values'];
+
+    $form['rules']['#default_value'] = $values['rules'];
+    $form['test_url']['#default_value'] = $values['test_url'];
+
+    $rules = array();
+    _basic_redirect_text2rules($values['rules'], $rules);
+    $rule = _basic_redirect_getrule($values['test_url'], $rules);
+
+    if ($rule) {
+      $form['result']['#value'] = "<p><strong>Result: </strong>${rule['url']}<br><strong>Code: </strong>${rule['code']}</p>";
+    }
+    else {
+      $form['result']['#value'] = '<p>ERROR</p>';
+    }
+  }
+  else {
+    $form['rules']['#default_value'] = variable_get('basic_redirect_Rules', '');
+  }
+
+  $form['warning']['#value'] = '<div><small>Empty "Test Url" to really save the rules.</small></div>';
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Save',
+  );
+
+  return $form;
+}
+
+/**
+ * Configuration form validation callback.
+ */
+function _basic_redirect_settings_form_validate($form, &$form_state) {
+  $texts = $form_state['values']['rules'];
+
+  // Splits lines into array.
+  $texts_arr = preg_split('/\R/', $texts, -1, PREG_SPLIT_NO_EMPTY);
+
+  // Test rules.
+  foreach ($texts_arr as $row => $text) {
+    if (!preg_match('/^(.+)(\s+\d{3}\s+)(.+)$/', $text)) {
+      form_set_error('rules', t('Invalid rule at line ' . ($row + 1)));
+    }
+  }
+}
+
+/**
+ * Configuration form submit callback.
+ */
+function _basic_redirect_settings_form_submit($form, &$form_state) {
+  if (!empty($form_state['values']['test_url'])) {
+    drupal_set_message('Basic Redirect configuration is not saved.');
+    $form_state['rebuild'] = TRUE;
+    $form_state['storage']['values'] = $form_state['values'];
+  }
+  else {
+    unset($form_state['storage']);
+    drupal_set_message('Basic Redirect configuration has been saved.');
+    variable_set('basic_redirect_Rules', $form_state['values']['rules']);
+  }
+}
